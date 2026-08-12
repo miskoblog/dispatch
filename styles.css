@@ -169,6 +169,7 @@ button { font-family: inherit; }
 
 .output-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; }
 .output-label { font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+.output-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .ghost-btn {
   border: 1px solid var(--line-strong); background: transparent; color: var(--ink);
   padding: 7px 13px; border-radius: 7px; font-size: 12.5px; font-weight: 600; cursor: pointer;
@@ -199,6 +200,23 @@ button { font-family: inherit; }
   background: var(--bg); color: var(--ink); font-size: 13.5px; font-family: inherit;
 }
 .jobbar-summary { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+
+/* ---------- Saved lists (Save / Open / Delete, every tool) ---------- */
+.saved-card {
+  background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 20px; margin-top: 20px;
+}
+.saved-count { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+.saved-list { display: flex; flex-direction: column; gap: 2px; }
+.saved-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 4px; border-bottom: 1px solid var(--line); flex-wrap: wrap;
+}
+.saved-row:last-child { border-bottom: none; }
+.saved-row-info { min-width: 0; flex: 1; }
+.saved-row-title { font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saved-row-meta { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.saved-row-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
 /* ---------- Brief Forge: angle bars ---------- */
 .angle-bars { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }

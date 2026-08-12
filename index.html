@@ -185,11 +185,21 @@
       <div class="output-card">
         <div class="output-head">
           <span class="output-label">Your opening brief</span>
-          <button class="ghost-btn" id="briefCopyBtn" type="button">Copy Brief</button>
+          <div class="output-actions">
+            <button class="ghost-btn" id="briefSaveBtn" type="button">Save</button>
+            <button class="ghost-btn" id="briefCopyBtn" type="button">Copy</button>
+          </div>
         </div>
         <div id="briefAngles" class="angle-bars"></div>
         <pre class="output-text" id="briefOutput">Fill in the form and click Generate Brief to see your ranked positioning angle and a ready-to-paste opening message.</pre>
       </div>
+    </div>
+    <div class="saved-card">
+      <div class="output-head">
+        <span class="output-label">Saved Briefs</span>
+        <span class="saved-count" id="briefSavedCount"></span>
+      </div>
+      <div class="saved-list" id="briefSavedList"></div>
     </div>
   </section>
 
@@ -224,6 +234,10 @@
       <div class="output-card">
         <div class="output-head">
           <span class="output-label">Ship score</span>
+          <div class="output-actions">
+            <button class="ghost-btn" id="shipSaveBtn" type="button">Save</button>
+            <button class="ghost-btn" id="shipCopyBtn" type="button">Copy</button>
+          </div>
         </div>
         <div class="score-ring-wrap">
           <div class="score-ring" id="shipScoreRing"><span id="shipScoreNum">—</span></div>
@@ -233,6 +247,13 @@
           </div>
         </div>
       </div>
+    </div>
+    <div class="saved-card">
+      <div class="output-head">
+        <span class="output-label">Saved Checks</span>
+        <span class="saved-count" id="shipSavedCount"></span>
+      </div>
+      <div class="saved-list" id="shipSavedList"></div>
     </div>
   </section>
 
@@ -268,10 +289,21 @@
       <div class="output-card">
         <div class="output-head">
           <span class="output-label">Launch progress</span>
+          <div class="output-actions">
+            <button class="ghost-btn" id="goliveSaveBtn" type="button">Save</button>
+            <button class="ghost-btn" id="goliveCopyBtn" type="button">Copy</button>
+          </div>
         </div>
         <div class="progress-track"><div class="progress-fill" id="goliveProgressFill"></div></div>
         <div class="progress-label" id="goliveProgressLabel">0 of 0 steps complete</div>
       </div>
+    </div>
+    <div class="saved-card">
+      <div class="output-head">
+        <span class="output-label">Saved Launch Plans</span>
+        <span class="saved-count" id="goliveSavedCount"></span>
+      </div>
+      <div class="saved-list" id="goliveSavedList"></div>
     </div>
   </section>
 
@@ -319,11 +351,21 @@
       <div class="output-card">
         <div class="output-head">
           <span class="output-label">Suggested range</span>
-          <button class="ghost-btn" id="rateCopyBtn" type="button">Copy Quote Line</button>
+          <div class="output-actions">
+            <button class="ghost-btn" id="rateSaveBtn" type="button">Save</button>
+            <button class="ghost-btn" id="rateCopyBtn" type="button">Copy</button>
+          </div>
         </div>
         <div class="rate-range" id="rateRange">—</div>
         <pre class="output-text" id="rateQuoteLine">Fill in the form and click Calculate Rate to get a suggested price range and a copy-ready quote line.</pre>
       </div>
+    </div>
+    <div class="saved-card">
+      <div class="output-head">
+        <span class="output-label">Saved Quotes</span>
+        <span class="saved-count" id="rateSavedCount"></span>
+      </div>
+      <div class="saved-list" id="rateSavedList"></div>
     </div>
   </section>
 

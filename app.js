@@ -207,6 +207,108 @@ function deleteActiveJob() {
   showToast("Job deleted");
 }
 
+/* ================= SAVED LISTS (Save / Open / Delete — every tool) ================= */
+/* Independent of the job-carry-forward system above: this is an explicit,
+   named history of past outputs per tool, so a buyer can save a specific
+   brief/check/plan/quote and come back to reopen it later, separate from
+   whichever job happens to be active. */
+
+const SAVED_KEYS = {
+  brief: "dispatch_saved_brief", ship: "dispatch_saved_ship",
+  golive: "dispatch_saved_golive", rate: "dispatch_saved_rate",
+};
+
+function loadSaved(tool) {
+  try {
+    const raw = localStorage.getItem(SAVED_KEYS[tool]);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+function persistSaved(tool, list) { localStorage.setItem(SAVED_KEYS[tool], JSON.stringify(list)); }
+function addSaved(tool, entry) {
+  const list = loadSaved(tool);
+  entry.id = "sv_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+  entry.savedAt = Date.now();
+  list.unshift(entry);
+  persistSaved(tool, list);
+  return list;
+}
+function deleteSaved(tool, id) {
+  const list = loadSaved(tool).filter((e) => e.id !== id);
+  persistSaved(tool, list);
+  return list;
+}
+function fmtSavedDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " +
+    d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * Renders a tool's "Saved X" list and wires each row's Open/Delete buttons.
+ * metaFn(entry) -> a short summary string shown before the saved date.
+ * onOpen(entry) -> restores that saved entry into the active job / form.
+ * onDeleted() -> called after a row is deleted, to let the caller re-render.
+ */
+function renderSavedList(tool, listElId, countElId, metaFn, onOpen, onDeleted) {
+  const list = loadSaved(tool);
+  const wrap = document.getElementById(listElId);
+  const countEl = document.getElementById(countElId);
+  if (countEl) countEl.textContent = list.length ? (list.length + " saved") : "";
+  if (!list.length) {
+    wrap.innerHTML = '<p class="empty-hint">Nothing saved yet — click Save above once you have output worth keeping.</p>';
+    return;
+  }
+  wrap.innerHTML = "";
+  list.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "saved-row";
+
+    const info = document.createElement("div");
+    info.className = "saved-row-info";
+    const title = document.createElement("div");
+    title.className = "saved-row-title";
+    title.textContent = entry.title;
+    const meta = document.createElement("div");
+    meta.className = "saved-row-meta";
+    meta.textContent = metaFn(entry) + " · " + fmtSavedDate(entry.savedAt);
+    info.appendChild(title);
+    info.appendChild(meta);
+
+    const actions = document.createElement("div");
+    actions.className = "saved-row-actions";
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "ghost-btn";
+    openBtn.textContent = "Open";
+    openBtn.addEventListener("click", () => onOpen(entry));
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "ghost-btn";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", () => {
+      deleteSaved(tool, entry.id);
+      onDeleted();
+      showToast("Deleted");
+    });
+    actions.appendChild(openBtn);
+    actions.appendChild(delBtn);
+
+    row.appendChild(info);
+    row.appendChild(actions);
+    wrap.appendChild(row);
+  });
+}
+
+function renderAllSavedLists() {
+  renderBriefSavedList();
+  renderShipSavedList();
+  renderGoliveSavedList();
+  renderRateSavedList();
+}
+
 /* ================= JOB BAR (rendered into every tool panel) ================= */
 
 function renderJobbars() {
@@ -404,6 +506,40 @@ function syncBriefFields() {
   renderJobbars();
 }
 
+function saveBrief() {
+  const job = getActiveJob();
+  if (!job.briefText) { showToast("Generate a brief first"); return; }
+  addSaved("brief", {
+    title: job.product || "Untitled brief",
+    product: job.product, price: job.price, audience: job.audience, goal: job.goal, strength: job.strength,
+    angleScores: job.angleScores, topAngleKey: job.topAngleKey, briefText: job.briefText,
+  });
+  renderBriefSavedList();
+  showToast("Brief saved");
+}
+
+function openSavedBrief(entry) {
+  const job = getActiveJob();
+  job.product = entry.product;
+  job.price = entry.price;
+  job.audience = entry.audience;
+  job.goal = entry.goal;
+  job.strength = entry.strength;
+  job.angleScores = entry.angleScores;
+  job.topAngleKey = entry.topAngleKey;
+  job.briefText = entry.briefText;
+  touchJob(job);
+  populateBriefForm();
+  renderJobbars();
+  showToast("Loaded into current job");
+}
+
+function renderBriefSavedList() {
+  renderSavedList("brief", "briefSavedList", "briefSavedCount",
+    (e) => (e.audience || "—") + " · " + (e.price ? "$" + e.price : "—"),
+    openSavedBrief, renderBriefSavedList);
+}
+
 function initBrief() {
   document.getElementById("briefGenerateBtn").addEventListener("click", generateBrief);
   document.getElementById("briefCopyBtn").addEventListener("click", () => {
@@ -411,6 +547,7 @@ function initBrief() {
     if (!job.briefText) { showToast("Generate a brief first"); return; }
     copyToClipboard(job.briefText);
   });
+  document.getElementById("briefSaveBtn").addEventListener("click", saveBrief);
   ["briefProduct", "briefPrice", "briefAudience", "briefGoal", "briefStrength"].forEach((id) => {
     document.getElementById(id).addEventListener("change", syncBriefFields);
   });
@@ -564,6 +701,51 @@ function populateShipForm() {
   renderShipChecklist();
 }
 
+function shipSummaryText(job) {
+  const type = job.deliverableType;
+  if (!type || !SHIP_CHECKLISTS[type]) return "";
+  const state = (job.shipCheckState[type] || { checked: {} }).checked;
+  const lines = [
+    "ShipCheck — " + SHIP_TYPE_LABELS[type],
+    "Score: " + document.getElementById("shipScoreNum").textContent + " — " + document.getElementById("shipVerdict").textContent,
+    "",
+  ];
+  SHIP_CHECKLISTS[type].forEach(([id, text]) => lines.push((state[id] ? "✓" : "✗") + " " + text));
+  return lines.join("\n");
+}
+
+function saveShip() {
+  const job = getActiveJob();
+  const type = job.deliverableType;
+  if (!type || !SHIP_CHECKLISTS[type]) { showToast("Choose a deliverable and check some items first"); return; }
+  const state = job.shipCheckState[type] || { checked: {} };
+  addSaved("ship", {
+    title: SHIP_TYPE_LABELS[type] + " check",
+    deliverableType: type,
+    checked: Object.assign({}, state.checked),
+    score: document.getElementById("shipScoreNum").textContent,
+    verdict: document.getElementById("shipVerdict").textContent,
+  });
+  renderShipSavedList();
+  showToast("ShipCheck saved");
+}
+
+function openSavedShip(entry) {
+  const job = getActiveJob();
+  job.deliverableType = entry.deliverableType;
+  job.shipCheckState[entry.deliverableType] = { checked: Object.assign({}, entry.checked) };
+  touchJob(job);
+  populateShipForm();
+  renderJobbars();
+  showToast("Loaded into current job");
+}
+
+function renderShipSavedList() {
+  renderSavedList("ship", "shipSavedList", "shipSavedCount",
+    (e) => e.score + " · " + e.verdict,
+    openSavedShip, renderShipSavedList);
+}
+
 function initShip() {
   document.getElementById("shipType").addEventListener("change", (e) => {
     const job = getActiveJob();
@@ -571,6 +753,12 @@ function initShip() {
     touchJob(job);
     renderShipChecklist();
     renderJobbars();
+  });
+  document.getElementById("shipSaveBtn").addEventListener("click", saveShip);
+  document.getElementById("shipCopyBtn").addEventListener("click", () => {
+    const text = shipSummaryText(getActiveJob());
+    if (!text) { showToast("Choose a deliverable first"); return; }
+    copyToClipboard(text);
   });
 }
 
@@ -650,6 +838,11 @@ const GOLIVE_STEPS = {
   ],
 };
 
+const GOLIVE_PLATFORM_LABELS = {
+  cms: "WordPress / CMS", email: "Email Platform", "meta-ads": "Meta Ads Manager",
+  amazon: "Amazon Seller Central", social: "Social Scheduler", shopify: "Shopify / Ecommerce Store", other: "Generic / Other",
+};
+
 function renderGoliveChecklist() {
   const job = getActiveJob();
   const platform = job.golivePlatform;
@@ -702,6 +895,54 @@ function populateGoliveForm() {
   renderGoliveChecklist();
 }
 
+function goliveSummaryText(job) {
+  const platform = job.golivePlatform;
+  if (!platform || !GOLIVE_STEPS[platform]) return "";
+  const steps = GOLIVE_STEPS[platform];
+  const state = (job.goLiveState[platform] || { checked: {} }).checked;
+  let done = 0;
+  steps.forEach((_, i) => { if (state[i]) done++; });
+  const lines = [
+    "GoLive — " + GOLIVE_PLATFORM_LABELS[platform],
+    "Progress: " + done + " of " + steps.length + " steps complete",
+    "",
+  ];
+  steps.forEach((text, i) => lines.push((state[i] ? "✓" : "○") + " " + text));
+  return lines.join("\n");
+}
+
+function saveGolive() {
+  const job = getActiveJob();
+  const platform = job.golivePlatform;
+  if (!platform || !GOLIVE_STEPS[platform]) { showToast("Choose a platform and check some steps first"); return; }
+  const steps = GOLIVE_STEPS[platform];
+  const state = job.goLiveState[platform] || { checked: {} };
+  let done = 0;
+  steps.forEach((_, i) => { if (state.checked[i]) done++; });
+  addSaved("golive", {
+    title: GOLIVE_PLATFORM_LABELS[platform] + " launch",
+    platform, checked: Object.assign({}, state.checked), done, total: steps.length,
+  });
+  renderGoliveSavedList();
+  showToast("GoLive checklist saved");
+}
+
+function openSavedGolive(entry) {
+  const job = getActiveJob();
+  job.golivePlatform = entry.platform;
+  job.goLiveState[entry.platform] = { checked: Object.assign({}, entry.checked) };
+  touchJob(job);
+  populateGoliveForm();
+  renderJobbars();
+  showToast("Loaded into current job");
+}
+
+function renderGoliveSavedList() {
+  renderSavedList("golive", "goliveSavedList", "goliveSavedCount",
+    (e) => e.done + "/" + e.total + " steps",
+    openSavedGolive, renderGoliveSavedList);
+}
+
 function initGolive() {
   document.getElementById("golivePlatform").addEventListener("change", (e) => {
     const job = getActiveJob();
@@ -709,6 +950,12 @@ function initGolive() {
     touchJob(job);
     renderGoliveChecklist();
     renderJobbars();
+  });
+  document.getElementById("goliveSaveBtn").addEventListener("click", saveGolive);
+  document.getElementById("goliveCopyBtn").addEventListener("click", () => {
+    const text = goliveSummaryText(getActiveJob());
+    if (!text) { showToast("Choose a platform first"); return; }
+    copyToClipboard(text);
   });
 }
 
@@ -779,6 +1026,37 @@ function populateRateForm() {
   renderRateOutput(job);
 }
 
+function saveRate() {
+  const job = getActiveJob();
+  if (!job.rateCardResult) { showToast("Calculate a rate first"); return; }
+  addSaved("rate", {
+    title: RATE_BASE[job.serviceType].label + " quote",
+    serviceType: job.serviceType, market: job.market, complexity: job.complexity, rush: job.rush,
+    result: job.rateCardResult,
+  });
+  renderRateSavedList();
+  showToast("Quote saved");
+}
+
+function openSavedRate(entry) {
+  const job = getActiveJob();
+  job.serviceType = entry.serviceType;
+  job.market = entry.market;
+  job.complexity = entry.complexity;
+  job.rush = entry.rush;
+  job.rateCardResult = entry.result;
+  touchJob(job);
+  populateRateForm();
+  renderJobbars();
+  showToast("Loaded into current job");
+}
+
+function renderRateSavedList() {
+  renderSavedList("rate", "rateSavedList", "rateSavedCount",
+    (e) => "$" + e.result.low + "–$" + e.result.high,
+    openSavedRate, renderRateSavedList);
+}
+
 function initRate() {
   document.getElementById("rateCalcBtn").addEventListener("click", calculateRate);
   document.getElementById("rateCopyBtn").addEventListener("click", () => {
@@ -786,6 +1064,7 @@ function initRate() {
     if (!job.rateCardResult) { showToast("Calculate a rate first"); return; }
     copyToClipboard(job.rateCardResult.quoteLine);
   });
+  document.getElementById("rateSaveBtn").addEventListener("click", saveRate);
 }
 
 /* ================= BOOT ================= */
@@ -800,4 +1079,5 @@ document.addEventListener("DOMContentLoaded", () => {
   initGolive();
   initRate();
   renderAll();
+  renderAllSavedLists();
 });
